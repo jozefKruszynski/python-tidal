@@ -70,3 +70,9 @@ prof/
 
 # Local Netlify folder
 .netlify
+
+# Mac OS
+.DS_Store
+
+# History
+.history
