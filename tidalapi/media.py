@@ -129,6 +129,7 @@ class Track(Media):
     isrc = None
     audio_quality = None
     version = None
+    full_name = None
     copyright = None
 
     def parse_track(self, json_obj):
@@ -141,6 +142,11 @@ class Track(Media):
             self.copyright = json_obj['copyright']
         self.audio_quality = tidalapi.Quality(json_obj['audioQuality'])
         self.version = json_obj['version']
+
+        if self.version is not None:
+            self.full_name = (f"{json_obj['title']} ({json_obj['version']})")
+        else:
+            self.full_name = json_obj['title']
 
         return copy.copy(self)
 
@@ -171,7 +177,7 @@ class Track(Media):
         :raises: A :class:`requests.HTTPError` if there aren't any lyrics
         """
         return self.requests.map_request('tracks/%s/lyrics' % self.id, parse=Lyrics().parse)
-
+      
     def get_track_radio(self):
         """
         Queries TIDAL for the track radio, which is a mix of tracks that are similar to this track.
@@ -180,6 +186,44 @@ class Track(Media):
         """
         params = {'limit': 100}
         return self.requests.map_request('tracks/%s/radio' % self.id, params=params, parse=self.session.parse_track)
+
+    def stream(self):
+        """
+        Retrieves the track streaming object, allowing for audio transmission.
+
+        :return: A :class:`Stream` object which holds audio file properties and parameters needed for streaming via `MPEG-DASH` protocol.
+        """
+        params = {
+            'playbackmode': 'STREAM',
+            'audioquality' : self.session.config.quality,
+            'assetpresentation': 'FULL',
+        }
+        return self.requests.map_request('tracks/%s/playbackinfopostpaywall' % self.id, params, parse=Stream().parse)
+
+      
+class Stream(object):
+    """
+    An object that stores the audio file properties and parameters needed for streaming via `MPEG-DASH` protocol.
+    
+    The `manifest` attribute holds the MPD file content encoded in base64.
+    """
+    track_id = -1
+    audio_mode = ""
+    audio_quality = "LOW"
+    manifest_mime_type = ""
+    manifest_hash = ""
+    manifest = ""
+
+    def parse(self, json_obj):
+        self.track_id = json_obj['trackId']
+        self.audio_mode = json_obj["audioMode"]
+        self.audio_quality = json_obj["audioQuality"]
+        self.manifest_mime_type = json_obj["manifestMimeType"]
+        self.manifest_hash = json_obj["manifestHash"]
+        self.manifest = json_obj["manifest"]
+
+        return copy.copy(self)
+      
 
 class Lyrics(object):
     track_id = -1
